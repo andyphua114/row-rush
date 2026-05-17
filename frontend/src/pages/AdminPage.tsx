@@ -1,3 +1,4 @@
+import type { CSSProperties } from "react";
 import { RotateCcw, Sailboat, Timer, Trophy } from "lucide-react";
 import { StatusPill } from "../components/StatusPill";
 import { useRowRushSocket } from "../lib/socket";
@@ -7,18 +8,18 @@ export function AdminPage() {
   const { state, status, send } = useRowRushSocket<AdminState>("admin");
 
   return (
-    <div className="min-h-dvh bg-slate-100 p-4 font-display text-slate-950">
+    <div className="river-shell min-h-dvh p-4 font-display text-slate-950">
       <div className="mx-auto max-w-6xl">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <p className="text-sm font-black uppercase tracking-[0.18em] text-teal-700">Row Rush Control</p>
-            <h1 className="text-4xl font-black">Admin</h1>
+            <h1 className="text-5xl font-black">Admin</h1>
           </div>
           <StatusPill status={status} />
         </div>
 
         {!state ? (
-          <div className="mt-8 rounded-lg bg-white p-6 font-bold shadow-sm">Waiting for server state...</div>
+          <div className="glass-panel mt-8 rounded-2xl p-6 font-bold">Waiting for server state...</div>
         ) : (
           <>
             <div className="mt-6 grid gap-3 md:grid-cols-4">
@@ -28,7 +29,7 @@ export function AdminPage() {
               <Stat label="Boat Cap" value={state.boat_capacity || "-"} />
             </div>
 
-            <div className="mt-5 flex flex-wrap gap-3 rounded-lg bg-white p-4 shadow-sm">
+            <div className="glass-panel mt-5 flex flex-wrap gap-3 rounded-2xl p-4">
               <button
                 className="admin-button bg-teal-600 text-white disabled:bg-slate-300"
                 disabled={state.phase !== "LOBBY" || state.round > 3}
@@ -77,17 +78,20 @@ export function AdminPage() {
             </div>
 
             <div className="mt-5 grid gap-5 lg:grid-cols-[1.25fr_1fr]">
-              <section className="rounded-lg bg-white p-4 shadow-sm">
+              <section className="glass-panel rounded-2xl p-4">
                 <div className="mb-4 flex items-center justify-between">
-                  <h2 className="text-xl font-black">Boats</h2>
+                  <h2 className="text-2xl font-black">Boats</h2>
                   <span className="font-bold text-slate-500">{Math.ceil(state.time_remaining)}s</span>
                 </div>
                 <div className="space-y-3">
                   {state.boats.map((boat) => (
-                    <div key={boat.boat_id} className="rounded-lg border border-slate-200 p-4">
+                    <div key={boat.boat_id} className="rounded-2xl border border-white/70 bg-white/65 p-4 shadow-sm">
                       <div className="flex items-center justify-between gap-4">
                         <div className="flex items-center gap-3">
-                          <span className="h-10 w-10 rounded-lg" style={{ backgroundColor: boat.color }} />
+                          <span
+                            className="boat-mark boat-mark-sm shrink-0"
+                            style={{ "--boat-color": boat.color } as CSSProperties}
+                          />
                           <div>
                             <p className="text-lg font-black">{boat.name}</p>
                             <p className="text-sm font-bold text-slate-500">
@@ -105,7 +109,7 @@ export function AdminPage() {
                 </div>
               </section>
 
-              <section className="rounded-lg bg-white p-4 shadow-sm">
+              <section className="glass-panel rounded-2xl p-4">
                 <h2 className="mb-4 text-xl font-black">{state.phase === "FINAL_RESULTS" ? "Final Leaderboard" : "Round Results"}</h2>
                 {state.phase === "FINAL_RESULTS" ? (
                   <div className="space-y-2">
@@ -137,7 +141,7 @@ export function AdminPage() {
 
 function Stat({ label, value }: { label: string; value: string | number }) {
   return (
-    <div className="rounded-lg bg-white p-4 shadow-sm">
+    <div className="glass-panel rounded-2xl p-4">
       <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">{label}</p>
       <p className="mt-1 text-2xl font-black">{value}</p>
     </div>
@@ -146,7 +150,7 @@ function Stat({ label, value }: { label: string; value: string | number }) {
 
 function Row({ left, right }: { left: string; right: string }) {
   return (
-    <div className="flex items-center justify-between rounded-lg bg-slate-100 px-3 py-3 font-black">
+    <div className="flex items-center justify-between rounded-xl bg-white/65 px-3 py-3 font-black shadow-sm">
       <span>{left}</span>
       <span className="text-teal-700">{right}</span>
     </div>
