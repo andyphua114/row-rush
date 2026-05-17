@@ -1,16 +1,20 @@
-import { useEffect, useRef, type CSSProperties } from "react";
+import { lazy, Suspense, type CSSProperties } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import { StatusPill } from "../components/StatusPill";
 import { useRowRushSocket } from "../lib/socket";
-import type { BoatSummary, RaceState } from "../types";
+import type { RaceState } from "../types";
 
-const FINISH = 1000;
+const PixiRaceCanvas = lazy(() =>
+  import("../components/PixiRaceCanvas").then((module) => ({
+    default: module.PixiRaceCanvas,
+  })),
+);
 
 export function ProjectorPage() {
   const { state, status } = useRowRushSocket<RaceState>("projector");
   const joinUrl = `${window.location.origin}/`;
   return (
-    <div className="h-dvh overflow-hidden bg-slate-950 font-display text-white">
+    <div className="fixed inset-0 h-dvh w-screen overflow-hidden bg-slate-950 font-display text-white">
       <div className="absolute left-6 top-5 z-20">
         <p className="text-sm font-black uppercase tracking-[0.22em] text-teal-100">
           Row Rush
@@ -29,7 +33,11 @@ export function ProjectorPage() {
       {state?.phase === "BOAT_SELECTION" || state?.phase === "ADMIN_REVIEW" ? (
         <SelectionScreen state={state} />
       ) : null}
-      {state ? <RaceCanvas state={state} /> : null}
+      {state ? (
+        <Suspense fallback={<div className="absolute inset-0 bg-slate-950" />}>
+          <PixiRaceCanvas state={state} />
+        </Suspense>
+      ) : null}
       {state?.phase === "COUNTDOWN" && <Countdown value={state.countdown} />}
       {state?.phase === "RACING" && <RaceOverlay state={state} />}
       {state?.phase === "ROUND_RESULTS" && <RoundResults state={state} />}
@@ -51,269 +59,6 @@ export function ProjectorPage() {
   );
 }
 
-function RaceCanvas({ state }: { state: RaceState }) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const stateRef = useRef(state);
-  stateRef.current = state;
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-    let raf = 0;
-    const resize = () => {
-      canvas.width = window.innerWidth * window.devicePixelRatio;
-      canvas.height = window.innerHeight * window.devicePixelRatio;
-      canvas.style.width = `${window.innerWidth}px`;
-      canvas.style.height = `${window.innerHeight}px`;
-      ctx.setTransform(
-        window.devicePixelRatio,
-        0,
-        0,
-        window.devicePixelRatio,
-        0,
-        0,
-      );
-    };
-    resize();
-    window.addEventListener("resize", resize);
-
-    const draw = (now: number) => {
-      const width = window.innerWidth;
-      const height = window.innerHeight;
-      const current = stateRef.current;
-      const wave = now / 1000;
-      ctx.clearRect(0, 0, width, height);
-      const gradient = ctx.createLinearGradient(0, 0, 0, height);
-      gradient.addColorStop(0, "#063247");
-      gradient.addColorStop(0.38, "#0b7f86");
-      gradient.addColorStop(1, "#031722");
-      ctx.fillStyle = gradient;
-      ctx.fillRect(0, 0, width, height);
-
-      const sun = ctx.createRadialGradient(
-        width * 0.5,
-        height * 0.12,
-        20,
-        width * 0.5,
-        height * 0.12,
-        width * 0.7,
-      );
-      sun.addColorStop(0, "rgba(125, 211, 252, 0.22)");
-      sun.addColorStop(1, "rgba(125, 211, 252, 0)");
-      ctx.fillStyle = sun;
-      ctx.fillRect(0, 0, width, height);
-
-      for (let y = 0; y < height; y += 24) {
-        ctx.strokeStyle = `rgba(255,255,255,${0.06 + ((y / 24) % 3) * 0.025})`;
-        ctx.lineWidth = y % 48 === 0 ? 3 : 1.5;
-        ctx.beginPath();
-        for (let x = -40; x < width + 40; x += 24) {
-          const yy = y + Math.sin(x / 58 + wave * 2.4 + y / 120) * 7;
-          if (x === -40) ctx.moveTo(x, yy);
-          else ctx.lineTo(x, yy);
-        }
-        ctx.stroke();
-      }
-
-      const top = 140;
-      const laneHeight = Math.max(78, (height - 220) / 5);
-      const left = 90;
-      const right = width - 140;
-      ctx.strokeStyle = "rgba(255,255,255,0.2)";
-      ctx.lineWidth = 2;
-      for (let index = 0; index < 5; index++) {
-        const y = top + index * laneHeight;
-        const laneGradient = ctx.createLinearGradient(left, y, right, y);
-        laneGradient.addColorStop(0, "rgba(255,255,255,0.04)");
-        laneGradient.addColorStop(0.5, "rgba(255,255,255,0.11)");
-        laneGradient.addColorStop(1, "rgba(255,255,255,0.03)");
-        ctx.fillStyle = laneGradient;
-        roundRect(
-          ctx,
-          left - 18,
-          y + 10,
-          right - left + 52,
-          laneHeight - 20,
-          26,
-        );
-        ctx.fill();
-        ctx.beginPath();
-        ctx.moveTo(left, y + laneHeight / 2);
-        ctx.lineTo(right, y + laneHeight / 2);
-        ctx.stroke();
-        drawBuoys(ctx, left, right, y + laneHeight / 2, index, wave);
-      }
-      drawFinishLine(ctx, right, top - 16, laneHeight * 5 - 4);
-
-      current.boats.forEach((boat, index) => {
-        const progress = Math.max(
-          0,
-          Math.min(1, (boat.position ?? 0) / FINISH),
-        );
-        const x = left + progress * (right - left);
-        const y =
-          top +
-          index * laneHeight +
-          laneHeight / 2 +
-          Math.sin(wave * 4 + index) * 5;
-        drawLaneLabel(ctx, 24, y, boat);
-        drawWake(ctx, x, y, boat.color);
-        drawBoat(ctx, x, y, boat);
-      });
-
-      raf = requestAnimationFrame(draw);
-    };
-    raf = requestAnimationFrame(draw);
-    return () => {
-      cancelAnimationFrame(raf);
-      window.removeEventListener("resize", resize);
-    };
-  }, []);
-
-  return <canvas ref={canvasRef} className="absolute inset-0" />;
-}
-
-function drawBoat(
-  ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  boat: BoatSummary,
-) {
-  ctx.save();
-  ctx.translate(x, y);
-  ctx.shadowColor = "rgba(0,0,0,0.35)";
-  ctx.shadowBlur = 18;
-  ctx.shadowOffsetY = 10;
-  ctx.fillStyle = boat.color;
-  ctx.strokeStyle = "rgba(255,255,255,0.9)";
-  ctx.lineWidth = 3;
-  ctx.beginPath();
-  ctx.moveTo(48, 0);
-  ctx.lineTo(20, 22);
-  ctx.lineTo(-52, 18);
-  ctx.lineTo(-64, 0);
-  ctx.lineTo(-52, -18);
-  ctx.lineTo(20, -22);
-  ctx.closePath();
-  ctx.fill();
-  ctx.stroke();
-  ctx.shadowColor = "transparent";
-  ctx.strokeStyle = "rgba(255,255,255,0.65)";
-  ctx.lineWidth = 4;
-  for (const offset of [-22, 0, 22]) {
-    ctx.beginPath();
-    ctx.moveTo(-8 + offset, -18);
-    ctx.lineTo(-28 + offset, -38);
-    ctx.moveTo(-8 + offset, 18);
-    ctx.lineTo(-28 + offset, 38);
-    ctx.stroke();
-  }
-  ctx.fillStyle = "rgba(15,23,42,0.86)";
-  roundRect(ctx, -39, -13, 52, 26, 8);
-  ctx.fill();
-  ctx.fillStyle = "#fff";
-  ctx.font = "900 21px Inter, sans-serif";
-  ctx.textAlign = "center";
-  ctx.fillText(`${boat.rower_count ?? 0}`, -13, 8);
-  ctx.restore();
-}
-
-function drawLaneLabel(
-  ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  boat: BoatSummary,
-) {
-  ctx.save();
-  ctx.fillStyle = "rgba(2,6,23,0.34)";
-  roundRect(ctx, x - 12, y - 48, 190, 68, 18);
-  ctx.fill();
-  ctx.fillStyle = "rgba(255,255,255,0.9)";
-  ctx.font = "900 18px Inter, sans-serif";
-  ctx.textAlign = "left";
-  ctx.fillText(boat.name, x, y - 20);
-  ctx.fillStyle = "rgba(255,255,255,0.65)";
-  ctx.font = "800 13px Inter, sans-serif";
-  ctx.fillText(`${boat.rower_count ?? 0} rowers`, x, y + 2);
-  ctx.restore();
-}
-
-function drawBuoys(
-  ctx: CanvasRenderingContext2D,
-  left: number,
-  right: number,
-  y: number,
-  lane: number,
-  wave: number,
-) {
-  ctx.save();
-  for (let x = left + 110; x < right - 55; x += 170) {
-    const bob = Math.sin(wave * 3 + lane + x / 80) * 2;
-    ctx.fillStyle =
-      lane % 2 === 0 ? "rgba(254, 240, 138, 0.85)" : "rgba(255,255,255,0.78)";
-    ctx.beginPath();
-    ctx.arc(x, y + bob, 4.5, 0, Math.PI * 2);
-    ctx.fill();
-  }
-  ctx.restore();
-}
-
-function drawFinishLine(
-  ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  height: number,
-) {
-  ctx.save();
-  ctx.fillStyle = "rgba(255,255,255,0.9)";
-  ctx.fillRect(x - 7, y, 14, height);
-  for (let i = 0; i < height; i += 18) {
-    ctx.fillStyle = i % 36 === 0 ? "#0f172a" : "#f8fafc";
-    ctx.fillRect(x - 7, y + i, 14, 18);
-  }
-  ctx.fillStyle = "#fde68a";
-  ctx.fillRect(x + 11, y, 5, height);
-  ctx.restore();
-}
-
-function roundRect(
-  ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  width: number,
-  height: number,
-  radius: number,
-) {
-  ctx.beginPath();
-  ctx.moveTo(x + radius, y);
-  ctx.arcTo(x + width, y, x + width, y + height, radius);
-  ctx.arcTo(x + width, y + height, x, y + height, radius);
-  ctx.arcTo(x, y + height, x, y, radius);
-  ctx.arcTo(x, y, x + width, y, radius);
-  ctx.closePath();
-}
-
-function drawWake(
-  ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  color?: string,
-) {
-  ctx.save();
-  ctx.strokeStyle = color || "white";
-  ctx.globalAlpha = 0.3;
-  ctx.lineWidth = 3;
-  for (let i = 0; i < 3; i++) {
-    ctx.beginPath();
-    ctx.moveTo(x - 75 - i * 28, y - 12 + i * 10);
-    ctx.quadraticCurveTo(x - 110 - i * 28, y, x - 75 - i * 28, y + 12 - i * 4);
-    ctx.stroke();
-  }
-  ctx.restore();
-}
-
 function RaceOverlay({ state }: { state: RaceState }) {
   return (
     <>
@@ -321,7 +66,7 @@ function RaceOverlay({ state }: { state: RaceState }) {
         <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">
           Time
         </p>
-        <p className="text-5xl font-black text-white">
+        <p className="text-5xl font-black text-slate-950">
           {Math.ceil(state.time_remaining)}s
         </p>
       </div>
