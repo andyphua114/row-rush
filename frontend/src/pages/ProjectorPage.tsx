@@ -62,11 +62,11 @@ export function ProjectorPage() {
 function RaceOverlay({ state }: { state: RaceState }) {
   return (
     <>
-      <div className="absolute bottom-6 right-6 z-20 rounded-2xl bg-white/92 px-6 py-4 text-right text-slate-950 shadow-2xl backdrop-blur">
-        <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">
+      <div className="absolute bottom-6 right-6 z-20 rounded-2xl border border-white/15 bg-slate-950/78 px-6 py-4 text-right text-white shadow-2xl backdrop-blur">
+        <p className="text-xs font-black uppercase tracking-[0.18em] text-teal-100">
           Time
         </p>
-        <p className="text-5xl font-black text-slate-950">
+        <p className="text-5xl font-black text-white drop-shadow-lg">
           {Math.ceil(state.time_remaining)}s
         </p>
       </div>
