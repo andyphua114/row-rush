@@ -20,9 +20,12 @@ export function PlayerPage() {
   const [nickname, setNickname] = useState(localStorage.getItem("row_rush_nickname") || "");
   const [selectionMessage, setSelectionMessage] = useState("");
   const [feedback, setFeedback] = useState<"good" | "weak" | "">("");
+  const [combo, setCombo] = useState(0);
+  const [activeSide, setActiveSide] = useState<Side | null>(null);
   const [localStats, setLocalStats] = useState(emptyStats);
   const bufferRef = useRef(emptyStats());
   const lastSideRef = useRef<Side | null>(null);
+  const feedbackTimerRef = useRef<number>();
   const joined = Boolean(state?.nickname);
 
   const selectedBoat = useMemo(
@@ -53,8 +56,14 @@ export function PlayerPage() {
       bufferRef.current = emptyStats();
       lastSideRef.current = null;
       setLocalStats(emptyStats());
+      setCombo(0);
+      setActiveSide(null);
     }
   }, [state?.phase, state?.round]);
+
+  useEffect(() => {
+    return () => window.clearTimeout(feedbackTimerRef.current);
+  }, []);
 
   useEffect(() => {
     setSelectionMessage("");
@@ -175,6 +184,8 @@ export function PlayerPage() {
         <RaceControls
           state={state}
           feedback={feedback}
+          combo={combo}
+          activeSide={activeSide}
           localStats={localStats}
           onTap={(side) => {
             const last = lastSideRef.current;
@@ -197,8 +208,14 @@ export function PlayerPage() {
             }));
             lastSideRef.current = side;
             setFeedback(good ? "good" : "weak");
+            setActiveSide(side);
+            setCombo((current) => (good ? Math.min(99, current + 1) : 0));
             if ("vibrate" in navigator) navigator.vibrate(good ? 18 : 8);
-            window.setTimeout(() => setFeedback(""), 120);
+            window.clearTimeout(feedbackTimerRef.current);
+            feedbackTimerRef.current = window.setTimeout(() => {
+              setFeedback("");
+              setActiveSide(null);
+            }, 120);
           }}
         />
       </Shell>
@@ -269,21 +286,28 @@ export function PlayerPage() {
 function RaceControls({
   state,
   feedback,
+  combo,
+  activeSide,
   localStats,
   onTap,
 }: {
   state: PlayerState;
   feedback: string;
+  combo: number;
+  activeSide: Side | null;
   localStats: Contribution;
   onTap: (side: Side) => void;
 }) {
   const boat = state.race_boat;
   const disabled = state.phase !== "RACING";
   const progress = Math.max(0, Math.min(100, boat?.progress ?? 0));
+  const totalRhythm = localStats.alternating_taps + localStats.repeated_taps;
+  const rhythm = totalRhythm ? Math.round((localStats.alternating_taps / totalRhythm) * 100) : 100;
   const pulseClass = feedback === "good" ? "stroke-flash-good" : feedback === "weak" ? "stroke-flash-weak" : "";
   return (
-    <div className="river-race relative flex min-h-dvh touch-none select-none flex-col overflow-hidden text-white">
-      <div className="relative z-10 flex items-center justify-between px-4 py-4">
+    <div className={`river-race relative flex min-h-dvh touch-none select-none flex-col overflow-hidden text-white ${feedback ? "race-shake" : ""}`}>
+      <div className="pointer-events-none absolute inset-x-0 top-0 z-0 h-52 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.16),transparent_62%)]" />
+      <div className="relative z-10 flex items-center justify-between px-4 pb-3 pt-[max(1rem,env(safe-area-inset-top))]">
         <div>
           <p className="text-xs font-black uppercase tracking-[0.2em] text-teal-100">Round {state.round}</p>
           <h1 className="mt-1 text-2xl font-black" style={{ color: state.selected_boat_color ?? "#fff" }}>
@@ -351,6 +375,17 @@ function RaceControls({
               style={{ width: `${progress}%`, backgroundColor: state.selected_boat_color ?? "#14b8a6" }}
             />
           </div>
+          <div className="mt-4 grid grid-cols-[1fr_auto] items-center gap-3">
+            <div className="h-3 overflow-hidden rounded-full bg-black/30 ring-1 ring-white/10">
+              <div
+                className="h-full rounded-full bg-emerald-300 transition-all duration-150"
+                style={{ width: `${rhythm}%` }}
+              />
+            </div>
+            <div className="min-w-20 text-right text-xs font-black uppercase tracking-[0.14em] text-teal-100">
+              {rhythm}% sync
+            </div>
+          </div>
           <div className={`mt-6 text-center text-4xl font-black ${feedback === "good" ? "text-emerald-300" : feedback === "weak" ? "text-amber-300" : "text-white"}`}>
             {feedback === "good" ? "GOOD STROKE" : feedback === "weak" ? "WEAK STROKE" : "ROW"}
           </div>
@@ -360,26 +395,43 @@ function RaceControls({
             <span className="h-1 w-1 rounded-full bg-slate-500" />
             {localStats.repeated_taps} weak
           </div>
+          <div className="mt-4 grid grid-cols-3 gap-2 text-center">
+            <MiniMetric label="Combo" value={`${combo}x`} tone={combo > 9 ? "hot" : "cool"} />
+            <MiniMetric label="Speed" value={`${Math.round(boat?.speed ?? 0)}`} tone="cool" />
+            <MiniMetric label="Power" value={`${Math.round(localStats.contribution_power)}`} tone="cool" />
+          </div>
         </div>
       </div>
-      <div className="relative z-10 flex min-h-36 items-center justify-center gap-8 px-6 pb-6 pt-2">
-        <TapButton label="LEFT" disabled={disabled} onTap={() => onTap("LEFT")} />
-        <TapButton label="RIGHT" disabled={disabled} onTap={() => onTap("RIGHT")} />
+      <div className="relative z-10 flex min-h-36 items-center justify-center gap-8 px-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-2">
+        <TapButton label="LEFT" active={activeSide === "LEFT"} disabled={disabled} onTap={() => onTap("LEFT")} />
+        <TapButton label="RIGHT" active={activeSide === "RIGHT"} disabled={disabled} onTap={() => onTap("RIGHT")} />
       </div>
     </div>
   );
 }
 
-function TapButton({ label, disabled, onTap }: { label: Side; disabled: boolean; onTap: () => void }) {
+function MiniMetric({ label, value, tone }: { label: string; value: string; tone: "cool" | "hot" }) {
+  return (
+    <div className={`rounded-2xl px-3 py-2 ring-1 ${tone === "hot" ? "bg-amber-300 text-slate-950 ring-amber-100" : "bg-white/10 text-white ring-white/10"}`}>
+      <p className={`text-[9px] font-black uppercase tracking-[0.14em] ${tone === "hot" ? "text-amber-950" : "text-teal-100"}`}>
+        {label}
+      </p>
+      <p className="mt-0.5 text-lg font-black leading-none">{value}</p>
+    </div>
+  );
+}
+
+function TapButton({ label, active, disabled, onTap }: { label: Side; active: boolean; disabled: boolean; onTap: () => void }) {
   const Icon = label === "LEFT" ? ChevronLeft : ChevronRight;
   return (
     <button
       disabled={disabled}
+      aria-label={`${label.toLowerCase()} stroke`}
       onPointerDown={(event) => {
         event.preventDefault();
         if (!disabled) onTap();
       }}
-      className="tap-button grid h-28 w-28 shrink-0 place-items-center rounded-full text-lg font-black text-slate-950 shadow-2xl shadow-black/30 ring-4 ring-white/20 transition active:scale-95 disabled:opacity-40 sm:h-32 sm:w-32 sm:text-xl"
+      className={`tap-button grid h-28 w-28 shrink-0 place-items-center rounded-full text-lg font-black text-slate-950 shadow-2xl shadow-black/30 ring-4 ring-white/20 transition active:scale-95 disabled:opacity-40 sm:h-32 sm:w-32 sm:text-xl ${active ? "tap-button-active" : ""}`}
     >
       <span className="relative z-10 flex flex-col items-center gap-1">
         <Icon size={34} strokeWidth={3} />

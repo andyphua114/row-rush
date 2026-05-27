@@ -17,6 +17,7 @@ body,
   margin: 0;
   min-height: 100%;
   overscroll-behavior: none;
+  touch-action: manipulation;
 }
 
 button,
@@ -82,6 +83,7 @@ button {
     repeating-linear-gradient(168deg, transparent 0 24px, rgba(255, 255, 255, 0.07) 25px 27px, transparent 28px 58px),
     radial-gradient(circle at 50% 100%, rgba(45, 212, 191, 0.2), transparent 42%);
   animation: current-drift 10s linear infinite;
+  will-change: background-position;
 }
 
 .boat-mark {
@@ -137,6 +139,8 @@ button {
 .tap-button {
   position: relative;
   overflow: hidden;
+  isolation: isolate;
+  touch-action: manipulation;
   background:
     radial-gradient(circle at 50% 20%, rgba(255, 255, 255, 0.95), rgba(226, 232, 240, 0.96)),
     linear-gradient(180deg, #fff, #dbeafe);
@@ -159,12 +163,35 @@ button {
   animation: pulse-ring 260ms ease-out;
 }
 
+.tap-button-active {
+  transform: scale(0.96);
+  box-shadow:
+    0 0 0 8px rgba(45, 212, 191, 0.16),
+    0 24px 44px rgba(0, 0, 0, 0.34);
+}
+
+.tap-button-active::after {
+  content: "";
+  position: absolute;
+  inset: -0.4rem;
+  z-index: 0;
+  border-radius: inherit;
+  background:
+    conic-gradient(from 0deg, rgba(45, 212, 191, 0.46), rgba(253, 224, 71, 0.42), rgba(45, 212, 191, 0.46));
+  opacity: 0.38;
+  animation: spin-spark 420ms linear;
+}
+
 .stroke-flash-good {
   box-shadow: 0 0 0 6px rgba(16, 185, 129, 0.18), 0 0 42px rgba(16, 185, 129, 0.42);
 }
 
 .stroke-flash-weak {
   box-shadow: 0 0 0 6px rgba(251, 191, 36, 0.18), 0 0 42px rgba(251, 191, 36, 0.36);
+}
+
+.race-shake {
+  animation: impact-nudge 120ms ease-out;
 }
 
 .projector-card {
@@ -191,5 +218,50 @@ button {
   to {
     transform: scale(1.25);
     opacity: 0;
+  }
+}
+
+@keyframes impact-nudge {
+  0% {
+    transform: translate3d(0, 0, 0);
+  }
+  35% {
+    transform: translate3d(0, -2px, 0);
+  }
+  70% {
+    transform: translate3d(0, 1px, 0);
+  }
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes spin-spark {
+  from {
+    transform: rotate(0deg) scale(0.9);
+    opacity: 0.5;
+  }
+  to {
+    transform: rotate(140deg) scale(1.08);
+    opacity: 0;
+  }
+}
+
+@media (max-width: 520px) {
+  .glass-panel,
+  .race-panel,
+  .projector-card {
+    backdrop-filter: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .river-shell::before,
+  .river-shell::after,
+  .river-race::before,
+  .race-shake,
+  .tap-button-active::after,
+  .tap-button:active::after {
+    animation: none;
   }
 }

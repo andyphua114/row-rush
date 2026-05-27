@@ -26,6 +26,7 @@ type BoatVisual = {
   nameLabel: Text;
   countLabel: Text;
   rankLabel: Text;
+  color: string;
   x: number;
   y: number;
 };
@@ -39,7 +40,28 @@ type PixiScene = {
   finish: Graphics;
   boatLayer: Container;
   boats: Map<string, BoatVisual>;
+  staticKey: string;
+  perf: {
+    frameCount: number;
+    frameIndex: number;
+    frameTimes: Float32Array;
+    maxMs: number;
+    totalMs: number;
+  };
 };
+
+declare global {
+  interface Window {
+    __rowRushPerf?: {
+      avgMs: number;
+      boatVisuals: number;
+      canvases: number;
+      fps: number;
+      frames: number;
+      maxMs: number;
+    };
+  }
+}
 
 export function PixiRaceCanvas({ state }: { state: RaceState }) {
   const hostRef = useRef<HTMLDivElement>(null);
@@ -57,12 +79,13 @@ export function PixiRaceCanvas({ state }: { state: RaceState }) {
     const init = async () => {
       const app = new Application();
       await app.init({
-        antialias: true,
+        antialias: false,
         autoDensity: true,
         backgroundAlpha: 0,
         preference: "webgl",
+        powerPreference: "high-performance",
         resizeTo: host,
-        resolution: Math.min(window.devicePixelRatio || 1, 2),
+        resolution: Math.min(window.devicePixelRatio || 1, 1.5),
       });
 
       if (disposed) {
@@ -91,6 +114,14 @@ export function PixiRaceCanvas({ state }: { state: RaceState }) {
         finish,
         boatLayer,
         boats: new Map(),
+        staticKey: "",
+        perf: {
+          frameCount: 0,
+          frameIndex: 0,
+          frameTimes: new Float32Array(120),
+          maxMs: 0,
+          totalMs: 0,
+        },
       };
       sceneRef.current = scene;
 
@@ -124,11 +155,17 @@ function renderScene(scene: PixiScene, state: RaceState, ticker: Ticker) {
   const { width, height } = scene.app.screen;
   const elapsed = performance.now() / 1000;
   const layout = getRaceLayout(width, height);
+  recordFrameStats(scene, ticker);
 
-  drawBackground(scene.background, width, height, elapsed);
+  const staticKey = `${Math.round(width)}:${Math.round(height)}:${Math.round(layout.top)}:${Math.round(layout.laneHeight)}:${Math.round(layout.left)}:${Math.round(layout.right)}`;
+  if (scene.staticKey !== staticKey) {
+    scene.staticKey = staticKey;
+    drawBackground(scene.background, width, height);
+    drawLanes(scene.lanes, layout);
+    drawFinish(scene.finish, layout);
+  }
+
   drawWater(scene.water, width, height, elapsed);
-  drawLanes(scene.lanes, layout, elapsed);
-  drawFinish(scene.finish, layout, elapsed);
   syncBoatVisuals(scene, state.boats);
   drawEventEffects(scene.effects, state.boats, layout, elapsed);
 
@@ -155,16 +192,45 @@ function renderScene(scene: PixiScene, state: RaceState, ticker: Ticker) {
     drawWake(visual.wake, speed, elapsed, boat.color);
     drawBoatGlow(visual.glow, boat);
     drawBoatShadow(visual.shadow, speed);
-    drawHull(visual.hull, boat.color);
     drawOars(visual.oars, elapsed, index, speed);
     drawRowers(visual.rowers, elapsed, index, speed);
-    drawBadge(visual.badge);
-    drawLabelPanel(visual.labelPanel);
+    if (visual.color !== boat.color) {
+      visual.color = boat.color;
+      drawHull(visual.hull, boat.color);
+    }
 
-    visual.nameLabel.text = boat.name;
-    visual.countLabel.text = `${boat.rower_count ?? 0} rowers`;
-    visual.rankLabel.text = `#${boat.rank ?? "-"}`;
+    const rowerText = `${boat.rower_count ?? 0} rowers`;
+    const rankText = `#${boat.rank ?? "-"}`;
+    if (visual.nameLabel.text !== boat.name) visual.nameLabel.text = boat.name;
+    if (visual.countLabel.text !== rowerText) visual.countLabel.text = rowerText;
+    if (visual.rankLabel.text !== rankText) visual.rankLabel.text = rankText;
   });
+}
+
+function recordFrameStats(scene: PixiScene, ticker: Ticker) {
+  const delta = ticker.deltaMS;
+  const { perf } = scene;
+  if (perf.frameCount >= perf.frameTimes.length) {
+    perf.totalMs -= perf.frameTimes[perf.frameIndex];
+  }
+  perf.frameTimes[perf.frameIndex] = delta;
+  perf.totalMs += delta;
+  perf.frameIndex = (perf.frameIndex + 1) % perf.frameTimes.length;
+  perf.frameCount += 1;
+  perf.maxMs = Math.max(delta, perf.maxMs * 0.985);
+
+  if (perf.frameCount % 30 !== 0) return;
+  const sampleCount = Math.min(perf.frameCount, perf.frameTimes.length);
+  const avgMs = perf.totalMs / sampleCount;
+  window.__rowRushPerf = {
+    avgMs: Number(avgMs.toFixed(2)),
+    boatVisuals: scene.boats.size,
+    canvases: document.querySelectorAll("canvas").length,
+    fps: Number((1000 / avgMs).toFixed(1)),
+    frames: perf.frameCount,
+    maxMs: Number(perf.maxMs.toFixed(2)),
+  };
+  scene.app.canvas.dataset.rowRushPerf = JSON.stringify(window.__rowRushPerf);
 }
 
 function getRaceLayout(width: number, height: number) {
@@ -180,7 +246,7 @@ function getRaceLayout(width: number, height: number) {
   };
 }
 
-function drawBackground(graphics: Graphics, width: number, height: number, time: number) {
+function drawBackground(graphics: Graphics, width: number, height: number) {
   graphics.clear();
   graphics.rect(0, 0, width, height).fill(0x02121e);
   graphics.rect(0, 0, width, height).fill({ color: 0x063247, alpha: 0.86 });
@@ -199,7 +265,7 @@ function drawBackground(graphics: Graphics, width: number, height: number, time:
 
   graphics.circle(width * 0.5, height * 0.1, width * 0.42).fill({
     color: 0x7dd3fc,
-    alpha: 0.13 + Math.sin(time * 0.8) * 0.025,
+    alpha: 0.13,
   });
   graphics.circle(width * 0.5, height * 0.52, width * 0.58).fill({
     color: 0x2dd4bf,
@@ -209,7 +275,7 @@ function drawBackground(graphics: Graphics, width: number, height: number, time:
   for (let i = 0; i < 22; i += 1) {
     const side = i % 2 === 0 ? 0.08 : 0.92;
     const x = width * side + Math.sin(i * 3.7) * width * 0.035;
-    const y = (i * 97 + time * 8) % (height + 80) - 40;
+    const y = (i * 97) % (height + 80) - 40;
     graphics.circle(x, y, 2 + (i % 3)).fill({
       color: i % 2 ? 0xfde68a : 0x67e8f9,
       alpha: 0.16 + (i % 4) * 0.035,
@@ -224,7 +290,8 @@ function drawBackground(graphics: Graphics, width: number, height: number, time:
 function drawWater(graphics: Graphics, width: number, height: number, time: number) {
   graphics.clear();
 
-  for (let band = 0; band < 7; band += 1) {
+  const isNarrow = width < 720;
+  for (let band = 0; band < (isNarrow ? 5 : 7); band += 1) {
     const y = ((band * 126 + time * 24) % (height + 180)) - 90;
     const offset = Math.sin(time * 0.7 + band) * 28;
     graphics.poly(
@@ -242,7 +309,7 @@ function drawWater(graphics: Graphics, width: number, height: number, time: numb
     ).fill({ color: band % 2 ? 0x22d3ee : 0x99f6e4, alpha: 0.04 });
   }
 
-  for (let y = -20; y < height + 40; y += 18) {
+  for (let y = -20; y < height + 40; y += isNarrow ? 24 : 18) {
     const alpha = 0.07 + ((y / 18) % 3) * 0.025;
     graphics.setStrokeStyle({
       width: y % 54 === 0 ? 3.2 : 1.6,
@@ -259,7 +326,7 @@ function drawWater(graphics: Graphics, width: number, height: number, time: numb
     graphics.stroke();
   }
 
-  for (let i = 0; i < 86; i += 1) {
+  for (let i = 0; i < (isNarrow ? 42 : 72); i += 1) {
     const x = ((i * 137 + time * 44) % (width + 140)) - 70;
     const y = 92 + ((i * 83 + Math.sin(time + i) * 26) % Math.max(220, height - 110));
     const size = 1.4 + (i % 4) * 0.75;
@@ -270,7 +337,6 @@ function drawWater(graphics: Graphics, width: number, height: number, time: numb
 function drawLanes(
   graphics: Graphics,
   layout: ReturnType<typeof getRaceLayout>,
-  time: number,
 ) {
   graphics.clear();
   const laneWidth = layout.right - layout.left + 58;
@@ -292,12 +358,12 @@ function drawLanes(
     graphics.setStrokeStyle({ width: 2.5, color: 0xffffff, alpha: 0.16 + depth * 0.05, cap: "round" });
     graphics.moveTo(layout.left, laneCenter);
     for (let x = layout.left; x < layout.right; x += 42) {
-      graphics.lineTo(x, laneCenter + Math.sin(x / 120 + time + index) * 2);
+      graphics.lineTo(x, laneCenter + Math.sin(x / 120 + index) * 2);
     }
     graphics.stroke();
 
     for (let x = layout.left + 88; x < layout.right - 34; x += 124) {
-      const bob = Math.sin(time * 3 + index + x / 80) * 2;
+      const bob = Math.sin(index + x / 80) * 2;
       graphics.circle(x, laneCenter + bob, 5.4).fill({
         color: index % 2 ? 0xf8fafc : 0xfef08a,
         alpha: 0.82,
@@ -310,7 +376,6 @@ function drawLanes(
 function drawFinish(
   graphics: Graphics,
   layout: ReturnType<typeof getRaceLayout>,
-  time: number,
 ) {
   graphics.clear();
   const finishHeight = layout.laneHeight * 5 - 4;
@@ -322,7 +387,7 @@ function drawFinish(
     graphics.rect(x - 8, y + i, 16, 18).fill(i % 36 === 0 ? 0x020617 : 0xf8fafc);
   }
   graphics.rect(x + 13, y, 6, finishHeight).fill(0xfde68a);
-  graphics.circle(x + 16, y + finishHeight / 2, 44 + Math.sin(time * 2) * 5).fill({
+  graphics.circle(x + 16, y + finishHeight / 2, 44).fill({
     color: 0xfde68a,
     alpha: 0.06,
   });
@@ -395,6 +460,9 @@ function createBoatVisual(boat: BoatSummary): BoatVisual {
   rankLabel.position.set(34, -1);
 
   container.addChild(wake, glow, shadow, oars, hull, rowers, badge, labelPanel, nameLabel, countLabel, rankLabel);
+  drawHull(hull, boat.color);
+  drawBadge(badge);
+  drawLabelPanel(labelPanel);
 
   return {
     container,
@@ -409,6 +477,7 @@ function createBoatVisual(boat: BoatSummary): BoatVisual {
     nameLabel,
     countLabel,
     rankLabel,
+    color: boat.color,
     x: 0,
     y: 0,
   };
