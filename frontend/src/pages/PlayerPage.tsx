@@ -213,7 +213,7 @@ export function PlayerPage() {
             lastSideRef.current = side;
             setFeedback(good ? "good" : "weak");
             setActiveSide(side);
-            setCombo((current) => (good ? Math.min(99, current + 1) : 0));
+            setCombo((current) => (good ? Math.min(999, current + 1) : 0));
             if ("vibrate" in navigator) navigator.vibrate(good ? 18 : 8);
             window.clearTimeout(feedbackTimerRef.current);
             feedbackTimerRef.current = window.setTimeout(() => {
@@ -420,7 +420,7 @@ function MiniMetric({ label, value, tone }: { label: string; value: string; tone
       <p className={`text-[9px] font-black uppercase tracking-[0.14em] ${tone === "hot" ? "text-amber-950" : "text-teal-100"}`}>
         {label}
       </p>
-      <p className="mt-0.5 text-lg font-black leading-none">{value}</p>
+      <p className="mt-0.5 min-w-0 truncate text-base font-black leading-none sm:text-lg">{value}</p>
     </div>
   );
 }
