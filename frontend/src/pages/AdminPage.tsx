@@ -1,11 +1,35 @@
-import type { CSSProperties } from "react";
-import { RotateCcw, Sailboat, Timer, Trophy } from "lucide-react";
+import type { CSSProperties, FormEvent } from "react";
+import { useState } from "react";
+import { Lock, LogOut, RotateCcw, Sailboat, Timer, Trophy } from "lucide-react";
 import { StatusPill } from "../components/StatusPill";
 import { useRowRushSocket } from "../lib/socket";
 import type { AdminState } from "../types";
 
+const ADMIN_PASSWORD_SESSION_KEY = "row_rush_admin_password";
+
 export function AdminPage() {
-  const { state, status, send } = useRowRushSocket<AdminState>("admin");
+  const [adminPassword, setAdminPassword] = useState(
+    () => sessionStorage.getItem(ADMIN_PASSWORD_SESSION_KEY) ?? "",
+  );
+  const [passwordInput, setPasswordInput] = useState("");
+  const { state, status, lastError, send } = useRowRushSocket<AdminState>("admin", {
+    adminPassword,
+    enabled: Boolean(adminPassword),
+  });
+
+  const submitPassword = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!passwordInput) return;
+    sessionStorage.setItem(ADMIN_PASSWORD_SESSION_KEY, passwordInput);
+    setAdminPassword(passwordInput);
+    setPasswordInput("");
+  };
+
+  const clearPassword = () => {
+    sessionStorage.removeItem(ADMIN_PASSWORD_SESSION_KEY);
+    setAdminPassword("");
+    setPasswordInput("");
+  };
 
   return (
     <div className="river-shell min-h-dvh p-4 font-display text-slate-950">
@@ -15,11 +39,55 @@ export function AdminPage() {
             <p className="text-sm font-black uppercase tracking-[0.18em] text-teal-700">Row Rush Control</p>
             <h1 className="text-5xl font-black">Admin</h1>
           </div>
-          <StatusPill status={status} />
+          <div className="flex items-center gap-2">
+            {adminPassword && (
+              <button className="admin-button h-10 bg-white/80 text-slate-700" onClick={clearPassword}>
+                <LogOut size={18} /> Lock
+              </button>
+            )}
+            <StatusPill status={status} />
+          </div>
         </div>
 
-        {!state ? (
-          <div className="glass-panel mt-8 rounded-2xl p-6 font-bold">Waiting for server state...</div>
+        {!adminPassword ? (
+          <form className="glass-panel mt-8 max-w-md rounded-2xl p-6" onSubmit={submitPassword}>
+            <div className="mb-4 flex items-center gap-3">
+              <div className="grid h-11 w-11 place-items-center rounded-xl bg-slate-950 text-white">
+                <Lock size={22} />
+              </div>
+              <div>
+                <h2 className="text-2xl font-black">Admin Password</h2>
+                <p className="text-sm font-bold text-slate-500">Required to open race control.</p>
+              </div>
+            </div>
+            <label className="block text-xs font-black uppercase tracking-[0.14em] text-slate-500" htmlFor="admin-password">
+              Password
+            </label>
+            <input
+              autoComplete="current-password"
+              className="mt-2 h-12 w-full rounded-lg border border-white/70 bg-white/85 px-4 font-bold outline-none ring-teal-500 transition focus:ring-2"
+              id="admin-password"
+              onChange={(event) => setPasswordInput(event.target.value)}
+              type="password"
+              value={passwordInput}
+            />
+            <button className="admin-button mt-4 w-full justify-center bg-slate-950 text-white" type="submit">
+              <Lock size={18} /> Unlock Admin
+            </button>
+          </form>
+        ) : !state ? (
+          <div className="glass-panel mt-8 rounded-2xl p-6 font-bold">
+            {lastError ? (
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <span className="text-rose-700">{lastError}</span>
+                <button className="admin-button bg-slate-950 text-white" onClick={clearPassword}>
+                  <LogOut size={18} /> Try Again
+                </button>
+              </div>
+            ) : (
+              "Waiting for server state..."
+            )}
+          </div>
         ) : (
           <>
             <div className="mt-6 grid gap-3 md:grid-cols-4">

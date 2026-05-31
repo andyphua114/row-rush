@@ -78,6 +78,17 @@ export function PlayerPage() {
     return () => window.removeEventListener("row-rush-selection", onSelection);
   }, []);
 
+  const submitNickname = () => {
+    const clean = nickname.trim();
+    if (!clean) return;
+    localStorage.setItem("row_rush_nickname", clean);
+    send({
+      type: "join",
+      nickname: clean,
+      player_id: localStorage.getItem("row_rush_player_id"),
+    });
+  };
+
   if (!state || !joined) {
     return (
       <Shell status={status}>
@@ -96,14 +107,7 @@ export function PlayerPage() {
             className="glass-panel rounded-2xl p-3"
             onSubmit={(event) => {
               event.preventDefault();
-              const clean = nickname.trim();
-              if (!clean) return;
-              localStorage.setItem("row_rush_nickname", clean);
-              send({
-                type: "join",
-                nickname: clean,
-                player_id: localStorage.getItem("row_rush_player_id"),
-              });
+              submitNickname();
             }}
           >
             <input

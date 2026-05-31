@@ -1,20 +1,36 @@
 import asyncio
+import hmac
 import json
 import os
 import time
+from pathlib import Path
 from typing import Any
 
+from dotenv import load_dotenv
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 
 from .game import PLAYER_BROADCAST_SECONDS, TICK_SECONDS, game
 
+load_dotenv(Path(__file__).resolve().parents[1] / ".env")
+
 app = FastAPI(title="Row Rush")
+
+ADMIN_MESSAGE_TYPES = {
+    "admin_open_boat_selection",
+    "admin_start_race",
+    "admin_next_round",
+    "admin_show_leaderboard",
+    "admin_show_round_results",
+    "admin_reset_game",
+}
 
 allowed_origins = os.getenv("CORS_ORIGINS", "*")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"] if allowed_origins == "*" else [o.strip() for o in allowed_origins.split(",")],
+    allow_origins=["*"]
+    if allowed_origins == "*"
+    else [o.strip() for o in allowed_origins.split(",")],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -29,12 +45,26 @@ class ConnectionHub:
     async def connect(self, websocket: WebSocket) -> None:
         await websocket.accept()
         async with self.lock:
-            self.clients[websocket] = {"role": "unknown", "player_id": None}
+            self.clients[websocket] = {
+                "role": "unknown",
+                "player_id": None,
+                "admin_authenticated": False,
+            }
 
-    async def identify(self, websocket: WebSocket, role: str, player_id: str | None = None) -> None:
+    async def identify(
+        self,
+        websocket: WebSocket,
+        role: str,
+        player_id: str | None = None,
+        admin_authenticated: bool = False,
+    ) -> None:
         async with self.lock:
             if websocket in self.clients:
-                self.clients[websocket] = {"role": role, "player_id": player_id}
+                self.clients[websocket] = {
+                    "role": role,
+                    "player_id": player_id,
+                    "admin_authenticated": admin_authenticated,
+                }
 
     async def disconnect(self, websocket: WebSocket) -> None:
         async with self.lock:
@@ -47,7 +77,9 @@ class ConnectionHub:
         async with self.lock:
             return list(self.clients.items())
 
-    async def send_json_safe(self, websocket: WebSocket, payload: dict[str, Any]) -> None:
+    async def send_json_safe(
+        self, websocket: WebSocket, payload: dict[str, Any]
+    ) -> None:
         try:
             await websocket.send_json(payload)
         except Exception:
@@ -67,10 +99,22 @@ async def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
+def is_valid_admin_password(value: str | None) -> tuple[bool, str | None]:
+    expected = os.getenv("ADMIN_PASSWORD", "")
+    if not expected:
+        return False, "Admin password is not configured on the server."
+    if not value:
+        return False, "Admin password is required."
+    if not hmac.compare_digest(value, expected):
+        return False, "Invalid admin password."
+    return True, None
+
+
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket) -> None:
     await hub.connect(websocket)
     player_id: str | None = None
+    admin_authenticated = False
     try:
         while True:
             raw = await websocket.receive_text()
@@ -80,19 +124,52 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
                 await websocket.send_json({"type": "error", "message": "Invalid JSON"})
                 continue
             msg_type = message.get("type")
+            if msg_type in ADMIN_MESSAGE_TYPES and not admin_authenticated:
+                await websocket.send_json(
+                    {"type": "error", "message": "Admin authentication required."}
+                )
+                continue
             async with game.lock:
                 if msg_type == "identify":
                     role = message.get("role", "player")
                     player_id = message.get("player_id")
-                    await hub.identify(websocket, role, player_id)
+                    if role == "admin":
+                        ok, error = is_valid_admin_password(
+                            message.get("admin_password")
+                        )
+                        if not ok:
+                            admin_authenticated = False
+                            await hub.identify(websocket, "unknown")
+                            await websocket.send_json(
+                                {"type": "error", "message": error}
+                            )
+                            continue
+                        admin_authenticated = True
+                        await hub.identify(
+                            websocket, "admin", None, admin_authenticated=True
+                        )
+                        await websocket.send_json({"type": "admin_auth", "ok": True})
+                    else:
+                        admin_authenticated = False
+                        await hub.identify(websocket, role, player_id)
                 elif msg_type == "join":
-                    player = game.upsert_player(message.get("nickname", "Rower"), message.get("player_id"))
+                    admin_authenticated = False
+                    player = game.upsert_player(
+                        message.get("nickname", "Rower"), message.get("player_id")
+                    )
                     player_id = player.player_id
                     await hub.identify(websocket, "player", player_id)
-                    await websocket.send_json({"type": "joined", "player_id": player_id})
+                    await websocket.send_json(
+                        {"type": "joined", "player_id": player_id}
+                    )
                 elif msg_type == "select_boat":
-                    ok, text = game.select_boat(player_id or message.get("player_id"), message.get("boat_id", ""))
-                    await websocket.send_json({"type": "selection_result", "ok": ok, "message": text})
+                    ok, text = game.select_boat(
+                        player_id or message.get("player_id"),
+                        message.get("boat_id", ""),
+                    )
+                    await websocket.send_json(
+                        {"type": "selection_result", "ok": ok, "message": text}
+                    )
                 elif msg_type == "tap_update":
                     game.record_taps(player_id or message.get("player_id"), message)
                 elif msg_type == "admin_open_boat_selection":
@@ -112,7 +189,12 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
                         game.race_task = None
                     game.reset()
                 else:
-                    await websocket.send_json({"type": "error", "message": f"Unknown message type: {msg_type}"})
+                    await websocket.send_json(
+                        {
+                            "type": "error",
+                            "message": f"Unknown message type: {msg_type}",
+                        }
+                    )
     except WebSocketDisconnect:
         await hub.disconnect(websocket)
 
@@ -160,9 +242,14 @@ async def broadcast_loop() -> None:
             }
         for websocket, info in clients:
             role = info.get("role")
-            if role == "admin":
+            if role == "admin" and info.get("admin_authenticated"):
                 await hub.send_json_safe(websocket, admin_payload)
             elif role == "projector":
                 await hub.send_json_safe(websocket, race_payload)
-            elif role == "player" and tick % max(1, int(PLAYER_BROADCAST_SECONDS / TICK_SECONDS)) == 0:
-                await hub.send_json_safe(websocket, player_payloads.get(info.get("player_id"), {}))
+            elif (
+                role == "player"
+                and tick % max(1, int(PLAYER_BROADCAST_SECONDS / TICK_SECONDS)) == 0
+            ):
+                await hub.send_json_safe(
+                    websocket, player_payloads.get(info.get("player_id"), {})
+                )
