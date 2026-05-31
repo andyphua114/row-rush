@@ -164,9 +164,16 @@ npm run preview -- --host 0.0.0.0 --port $PORT
 
 ```bash
 VITE_WS_URL=wss://YOUR_BACKEND_PUBLIC_URL/ws
+PREVIEW_ALLOWED_HOSTS=.up.railway.app
 ```
 
 Replace `YOUR_BACKEND_PUBLIC_URL` with the Railway backend domain, without `https://`.
+
+If you add a custom frontend domain later, include it in `PREVIEW_ALLOWED_HOSTS` without `https://`:
+
+```bash
+PREVIEW_ALLOWED_HOSTS=.up.railway.app,row-rush.example.com
+```
 
 6. Deploy the frontend.
 7. In the frontend service Networking settings, generate a public domain.
