@@ -308,57 +308,31 @@ function RaceControls({
   const totalRhythm = localStats.alternating_taps + localStats.repeated_taps;
   const rhythm = totalRhythm ? Math.round((localStats.alternating_taps / totalRhythm) * 100) : 100;
   const pulseClass = feedback === "good" ? "stroke-flash-good" : feedback === "weak" ? "stroke-flash-weak" : "";
-
-  useEffect(() => {
-    const updateViewportVars = () => {
-      const viewport = window.visualViewport;
-      document.documentElement.style.setProperty(
-        "--row-rush-visible-height",
-        `${Math.round(viewport?.height ?? window.innerHeight)}px`,
-      );
-    };
-
-    updateViewportVars();
-    window.visualViewport?.addEventListener("resize", updateViewportVars);
-    window.visualViewport?.addEventListener("scroll", updateViewportVars);
-    window.addEventListener("resize", updateViewportVars);
-
-    return () => {
-      window.visualViewport?.removeEventListener("resize", updateViewportVars);
-      window.visualViewport?.removeEventListener("scroll", updateViewportVars);
-      window.removeEventListener("resize", updateViewportVars);
-      document.documentElement.style.removeProperty("--row-rush-visible-height");
-    };
-  }, []);
-
   return (
-    <div
-      className={`river-race relative flex select-none flex-col overflow-hidden text-white ${feedback ? "race-shake" : ""}`}
-      style={{ height: "var(--row-rush-visible-height, 100dvh)" }}
-    >
+    <div className={`race-screen river-race relative touch-none select-none text-white ${feedback ? "race-shake" : ""}`}>
       <div className="pointer-events-none absolute inset-x-0 top-0 z-0 h-52 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.16),transparent_62%)]" />
-      <div className="relative z-10 flex shrink-0 items-center justify-between px-4 pb-3 pt-[max(1rem,env(safe-area-inset-top))]">
+      <div className="race-zone-top relative z-10 flex items-center justify-between px-4 pb-2 pt-[max(0.875rem,env(safe-area-inset-top))]">
         <div>
-          <p className="text-xs font-black uppercase tracking-[0.2em] text-teal-100">Round {state.round}</p>
-          <h1 className="mt-1 text-2xl font-black" style={{ color: state.selected_boat_color ?? "#fff" }}>
+          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-teal-100">Round {state.round}</p>
+          <h1 className="mt-0.5 text-2xl font-black leading-tight" style={{ color: state.selected_boat_color ?? "#fff" }}>
             {state.selected_boat_name}
           </h1>
         </div>
-        <div className="rounded-2xl bg-white/10 px-4 py-2 text-right ring-1 ring-white/15">
+        <div className="rounded-2xl bg-white/10 px-4 py-1.5 text-right ring-1 ring-white/15">
           <p className="text-[10px] font-black uppercase tracking-[0.18em] text-teal-100">Rank</p>
-          <p className="text-3xl font-black leading-none">#{boat?.rank ?? "-"}</p>
+          <p className="text-2xl font-black leading-none">#{boat?.rank ?? "-"}</p>
         </div>
       </div>
-      <div className="relative z-10 flex min-h-0 flex-1 flex-col justify-start overflow-y-auto px-4 pb-2">
+      <div className="race-zone-mid relative z-10 flex flex-col justify-center px-4">
         {state.countdown && (
           <div className="absolute inset-0 z-20 grid place-items-center bg-slate-950/70 text-8xl font-black backdrop-blur-sm">
             {state.countdown}
           </div>
         )}
-        <div className={`race-panel rounded-3xl p-4 transition ${pulseClass}`}>
-          <div className="mb-5 flex items-center gap-3">
+        <div className={`race-panel rounded-3xl p-3 transition ${pulseClass}`}>
+          <div className="mb-3 flex items-center gap-3">
             <span
-              className="boat-mark shrink-0"
+              className="boat-mark boat-mark-sm shrink-0"
               style={{ "--boat-color": state.selected_boat_color ?? "#14b8a6" } as CSSProperties}
             />
             <div className="min-w-0">
@@ -369,14 +343,14 @@ function RaceControls({
             </div>
             <Gauge className="ml-auto text-teal-100" />
           </div>
-          <div className="mb-4 grid gap-2 text-left">
-            <div className="rounded-2xl bg-white/10 px-4 py-3 ring-1 ring-white/10">
+          <div className="mb-3 grid grid-cols-2 gap-2 text-left">
+            <div className="grid min-h-20 content-center overflow-hidden rounded-2xl bg-white/10 px-3 py-2 ring-1 ring-white/10">
               <p className="text-[10px] font-black uppercase tracking-[0.16em] text-teal-100">Boat Power</p>
-              <p className="mt-1 text-base font-black text-white">{boat?.power_name ?? "Revealing soon"}</p>
-              {boat?.power_trait && <p className="text-xs font-bold text-slate-300">{boat.power_trait}</p>}
+              <p className="mt-1 line-clamp-1 text-sm font-black text-white">{boat?.power_name ?? "Revealing soon"}</p>
+              {boat?.power_trait && <p className="line-clamp-2 text-[11px] font-bold leading-tight text-slate-300">{boat.power_trait}</p>}
             </div>
             <div
-              className={`grid h-28 content-center overflow-hidden rounded-2xl px-4 py-3 shadow-sm ${
+              className={`grid min-h-20 content-center overflow-hidden rounded-2xl px-3 py-2 shadow-sm ${
                 boat?.active_event_kind === "negative"
                   ? "bg-rose-300 text-slate-950 ring-1 ring-rose-100"
                   : boat?.active_event_kind === "mixed"
@@ -389,23 +363,23 @@ function RaceControls({
               <p className={`text-[10px] font-black uppercase tracking-[0.16em] ${boat?.active_event ? "text-slate-700" : "text-teal-100"}`}>
                 Active Effect
               </p>
-              <p className="mt-1 line-clamp-1 text-sm font-black">{boat?.active_event ?? "No active effect"}</p>
+              <p className="mt-1 line-clamp-1 text-sm font-black leading-tight">{boat?.active_event ?? "No active effect"}</p>
               {boat?.active_event_description && (
-                <p className="line-clamp-2 text-xs font-bold text-slate-700">{boat.active_event_description}</p>
+                <p className="line-clamp-2 text-[11px] font-bold leading-tight text-slate-700">{boat.active_event_description}</p>
               )}
             </div>
           </div>
-          <div className="mb-3 flex items-center justify-between text-sm font-black text-slate-200">
+          <div className="mb-2 flex items-center justify-between text-sm font-black text-slate-200">
             <span>{Math.ceil(state.time_remaining)}s</span>
             <span>{Math.round(progress)}%</span>
           </div>
-          <div className="h-9 overflow-hidden rounded-full bg-black/35 p-1 ring-1 ring-white/10">
+          <div className="h-7 overflow-hidden rounded-full bg-black/35 p-1 ring-1 ring-white/10">
             <div
               className="h-full rounded-full bg-[linear-gradient(90deg,rgba(255,255,255,0.3),transparent)] transition-all duration-200"
               style={{ width: `${progress}%`, backgroundColor: state.selected_boat_color ?? "#14b8a6" }}
             />
           </div>
-          <div className="mt-4 grid grid-cols-[1fr_auto] items-center gap-3">
+          <div className="mt-3 grid grid-cols-[1fr_auto] items-center gap-3">
             <div className="h-3 overflow-hidden rounded-full bg-black/30 ring-1 ring-white/10">
               <div
                 className="h-full rounded-full bg-emerald-300 transition-all duration-150"
@@ -416,7 +390,7 @@ function RaceControls({
               {rhythm}% sync
             </div>
           </div>
-          <div className={`mt-6 text-center text-4xl font-black ${feedback === "good" ? "text-emerald-300" : feedback === "weak" ? "text-amber-300" : "text-white"}`}>
+          <div className={`mt-4 text-center text-4xl font-black leading-none ${feedback === "good" ? "text-emerald-300" : feedback === "weak" ? "text-amber-300" : "text-white"}`}>
             {feedback === "good" ? "GOOD STROKE" : feedback === "weak" ? "WEAK STROKE" : "ROW"}
           </div>
           <div className="mx-auto mt-2 inline-flex w-full items-center justify-center gap-3 text-sm font-black text-slate-300">
@@ -425,14 +399,14 @@ function RaceControls({
             <span className="h-1 w-1 rounded-full bg-slate-500" />
             {localStats.repeated_taps} weak
           </div>
-          <div className="mt-4 grid grid-cols-3 gap-2 text-center">
+          <div className="mt-3 grid grid-cols-3 gap-2 text-center">
             <MiniMetric label="Combo" value={`${combo}x`} tone={combo > 9 ? "hot" : "cool"} />
             <MiniMetric label="Speed" value={`${Math.round(boat?.speed ?? 0)}`} tone="cool" />
             <MiniMetric label="Power" value={`${Math.round(localStats.contribution_power)}`} tone="cool" />
           </div>
         </div>
       </div>
-      <div className="relative z-10 flex min-h-32 shrink-0 items-center justify-center gap-8 px-6 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2">
+      <div className="race-zone-bottom relative z-10 flex items-center justify-center gap-8 px-6">
         <TapButton label="LEFT" active={activeSide === "LEFT"} disabled={disabled} onTap={() => onTap("LEFT")} />
         <TapButton label="RIGHT" active={activeSide === "RIGHT"} disabled={disabled} onTap={() => onTap("RIGHT")} />
       </div>
@@ -461,7 +435,7 @@ function TapButton({ label, active, disabled, onTap }: { label: Side; active: bo
         event.preventDefault();
         if (!disabled) onTap();
       }}
-      className={`tap-button grid h-28 w-28 shrink-0 place-items-center rounded-full text-lg font-black text-slate-950 shadow-2xl shadow-black/30 ring-4 ring-white/20 transition active:scale-95 disabled:opacity-40 sm:h-32 sm:w-32 sm:text-xl ${active ? "tap-button-active" : ""}`}
+      className={`tap-button race-tap-button grid shrink-0 place-items-center rounded-full text-lg font-black text-slate-950 shadow-2xl shadow-black/30 ring-4 ring-white/20 transition active:scale-95 disabled:opacity-40 sm:text-xl ${active ? "tap-button-active" : ""}`}
     >
       <span className="relative z-10 flex flex-col items-center gap-1">
         <Icon size={34} strokeWidth={3} />

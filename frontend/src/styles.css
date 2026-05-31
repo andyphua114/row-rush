@@ -136,6 +136,30 @@ button {
   backdrop-filter: blur(18px);
 }
 
+.race-screen {
+  height: 100vh;
+  height: 100svh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.race-zone-top,
+.race-zone-bottom {
+  flex: 0 0 auto;
+}
+
+.race-zone-mid {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.race-zone-bottom {
+  padding-top: 0.45rem;
+  padding-bottom: max(env(safe-area-inset-bottom, 0.875rem), 0.875rem);
+}
+
 .tap-button {
   position: relative;
   overflow: hidden;
@@ -144,6 +168,11 @@ button {
   background:
     radial-gradient(circle at 50% 20%, rgba(255, 255, 255, 0.95), rgba(226, 232, 240, 0.96)),
     linear-gradient(180deg, #fff, #dbeafe);
+}
+
+.race-tap-button {
+  width: clamp(5.9rem, 28vw, 7rem);
+  height: clamp(5.9rem, 28vw, 7rem);
 }
 
 .tap-button::before {
