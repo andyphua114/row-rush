@@ -308,10 +308,36 @@ function RaceControls({
   const totalRhythm = localStats.alternating_taps + localStats.repeated_taps;
   const rhythm = totalRhythm ? Math.round((localStats.alternating_taps / totalRhythm) * 100) : 100;
   const pulseClass = feedback === "good" ? "stroke-flash-good" : feedback === "weak" ? "stroke-flash-weak" : "";
+
+  useEffect(() => {
+    const updateViewportVars = () => {
+      const viewport = window.visualViewport;
+      document.documentElement.style.setProperty(
+        "--row-rush-visible-height",
+        `${Math.round(viewport?.height ?? window.innerHeight)}px`,
+      );
+    };
+
+    updateViewportVars();
+    window.visualViewport?.addEventListener("resize", updateViewportVars);
+    window.visualViewport?.addEventListener("scroll", updateViewportVars);
+    window.addEventListener("resize", updateViewportVars);
+
+    return () => {
+      window.visualViewport?.removeEventListener("resize", updateViewportVars);
+      window.visualViewport?.removeEventListener("scroll", updateViewportVars);
+      window.removeEventListener("resize", updateViewportVars);
+      document.documentElement.style.removeProperty("--row-rush-visible-height");
+    };
+  }, []);
+
   return (
-    <div className={`river-race relative flex min-h-dvh touch-none select-none flex-col overflow-hidden text-white ${feedback ? "race-shake" : ""}`}>
+    <div
+      className={`river-race relative flex select-none flex-col overflow-hidden text-white ${feedback ? "race-shake" : ""}`}
+      style={{ height: "var(--row-rush-visible-height, 100dvh)" }}
+    >
       <div className="pointer-events-none absolute inset-x-0 top-0 z-0 h-52 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.16),transparent_62%)]" />
-      <div className="relative z-10 flex items-center justify-between px-4 pb-3 pt-[max(1rem,env(safe-area-inset-top))]">
+      <div className="relative z-10 flex shrink-0 items-center justify-between px-4 pb-3 pt-[max(1rem,env(safe-area-inset-top))]">
         <div>
           <p className="text-xs font-black uppercase tracking-[0.2em] text-teal-100">Round {state.round}</p>
           <h1 className="mt-1 text-2xl font-black" style={{ color: state.selected_boat_color ?? "#fff" }}>
@@ -323,7 +349,7 @@ function RaceControls({
           <p className="text-3xl font-black leading-none">#{boat?.rank ?? "-"}</p>
         </div>
       </div>
-      <div className="relative z-10 flex flex-1 flex-col justify-center px-4">
+      <div className="relative z-10 flex min-h-0 flex-1 flex-col justify-start overflow-y-auto px-4 pb-2">
         {state.countdown && (
           <div className="absolute inset-0 z-20 grid place-items-center bg-slate-950/70 text-8xl font-black backdrop-blur-sm">
             {state.countdown}
@@ -350,7 +376,7 @@ function RaceControls({
               {boat?.power_trait && <p className="text-xs font-bold text-slate-300">{boat.power_trait}</p>}
             </div>
             <div
-              className={`rounded-2xl px-4 py-3 shadow-sm ${
+              className={`grid h-28 content-center overflow-hidden rounded-2xl px-4 py-3 shadow-sm ${
                 boat?.active_event_kind === "negative"
                   ? "bg-rose-300 text-slate-950 ring-1 ring-rose-100"
                   : boat?.active_event_kind === "mixed"
@@ -363,9 +389,9 @@ function RaceControls({
               <p className={`text-[10px] font-black uppercase tracking-[0.16em] ${boat?.active_event ? "text-slate-700" : "text-teal-100"}`}>
                 Active Effect
               </p>
-              <p className="mt-1 text-sm font-black">{boat?.active_event ?? "No active effect"}</p>
+              <p className="mt-1 line-clamp-1 text-sm font-black">{boat?.active_event ?? "No active effect"}</p>
               {boat?.active_event_description && (
-                <p className="text-xs font-bold text-slate-700">{boat.active_event_description}</p>
+                <p className="line-clamp-2 text-xs font-bold text-slate-700">{boat.active_event_description}</p>
               )}
             </div>
           </div>
@@ -406,7 +432,7 @@ function RaceControls({
           </div>
         </div>
       </div>
-      <div className="relative z-10 flex min-h-36 items-center justify-center gap-8 px-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-2">
+      <div className="relative z-10 flex min-h-32 shrink-0 items-center justify-center gap-8 px-6 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2">
         <TapButton label="LEFT" active={activeSide === "LEFT"} disabled={disabled} onTap={() => onTap("LEFT")} />
         <TapButton label="RIGHT" active={activeSide === "RIGHT"} disabled={disabled} onTap={() => onTap("RIGHT")} />
       </div>
