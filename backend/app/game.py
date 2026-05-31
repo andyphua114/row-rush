@@ -7,7 +7,6 @@ from collections import defaultdict, deque
 from dataclasses import dataclass, field
 from typing import Any
 
-
 PHASES = [
     "LOBBY",
     "BOAT_SELECTION",
@@ -26,11 +25,11 @@ PLAYER_BROADCAST_SECONDS = 0.2
 POINTS_BY_PLACE = [10, 7, 5, 3, 1]
 
 BOAT_THEME_POOL = [
-    ("boat_1", "Crimson Kraken", "#ef4444"),
-    ("boat_2", "Azure Arrow", "#0ea5e9"),
-    ("boat_3", "Golden Gull", "#f59e0b"),
-    ("boat_4", "Emerald Eel", "#10b981"),
-    ("boat_5", "Violet Vortex", "#8b5cf6"),
+    ("boat_1", "Faster than MRT", "#ef4444"),
+    ("boat_2", "Encik's Grandma", "#0ea5e9"),
+    ("boat_3", "Kena Arrow", "#f59e0b"),
+    ("boat_4", "Sibei Fast", "#10b981"),
+    ("boat_5", "Bojio Lor", "#8b5cf6"),
 ]
 
 
@@ -85,34 +84,94 @@ EVENT_POOL = [
     EventDef("tailwind", "Tailwind", "+12% speed", 4, value=0.12),
     EventDef("whirlpool", "Whirlpool", "-12% speed", 3, kind="negative", value=-0.12),
     EventDef("lucky_current", "Lucky Current", "+10% speed", 4, value=0.10),
-    EventDef("seaweed_snag", "Seaweed Snag", "-10% speed", 3, kind="negative", value=-0.10),
+    EventDef(
+        "seaweed_snag", "Seaweed Snag", "-10% speed", 3, kind="negative", value=-0.10
+    ),
     EventDef("dolphin_push", "Dolphin Push", "+15% speed", 2, value=0.15),
     EventDef("splash_zone", "Splash Zone", "Balance gets wobbly", 4, kind="negative"),
     EventDef("calm_patch", "Calm Patch", "Momentum improves", 4),
     EventDef("choppy_water", "Choppy Water", "Momentum gets jumpy", 4, kind="negative"),
-    EventDef("golden_wave", "Golden Wave", "Last place boost", 5, target="last", value=0.08),
-    EventDef("rival_wake", "Rival Wake", "Leader slowed", 3, target="first", kind="negative", value=-0.08),
+    EventDef(
+        "golden_wave", "Golden Wave", "Last place boost", 5, target="last", value=0.08
+    ),
+    EventDef(
+        "rival_wake",
+        "Rival Wake",
+        "Leader slowed",
+        3,
+        target="first",
+        kind="negative",
+        value=-0.08,
+    ),
     EventDef("oar_shine", "Oar Shine", "Alternating strokes sparkle", 4),
     EventDef("slippery_oar", "Slippery Oar", "Repeats lose bite", 4, kind="negative"),
     EventDef("crowd_cheer", "Crowd Cheer", "Big crews surge", 4, target="big"),
-    EventDef("small_crew_focus", "Small Crew Focus", "Small crews focus", 4, target="small"),
-    EventDef("misty_river", "Misty River", "Fog rolls over the course", 4, target="all", value=0.0),
-    EventDef("banana_peel", "Banana Peel", "-8% speed", 2, kind="negative", value=-0.08),
+    EventDef(
+        "small_crew_focus", "Small Crew Focus", "Small crews focus", 4, target="small"
+    ),
+    EventDef(
+        "misty_river",
+        "Misty River",
+        "Fog rolls over the course",
+        4,
+        target="all",
+        value=0.0,
+    ),
+    EventDef(
+        "banana_peel", "Banana Peel", "-8% speed", 2, kind="negative", value=-0.08
+    ),
     EventDef("power_stroke", "Power Stroke", "More power per stroke", 4),
     EventDef("heavy_splash", "Heavy Splash", "Crowding hurts more", 3, kind="negative"),
     EventDef("smooth_water", "Smooth Water", "Balance floor rises", 4),
-    EventDef("rogue_ripple", "Rogue Ripple", "Everyone slows a little", 3, target="all", kind="negative", value=-0.05),
-    EventDef("festival_drums", "Festival Drums", "Everyone rows harder", 5, target="all", value=0.05),
-    EventDef("secret_shortcut", "Secret Shortcut", "A chaser finds clean water", 3, target="nonleading", value=0.12),
+    EventDef(
+        "rogue_ripple",
+        "Rogue Ripple",
+        "Everyone slows a little",
+        3,
+        target="all",
+        kind="negative",
+        value=-0.05,
+    ),
+    EventDef(
+        "festival_drums",
+        "Festival Drums",
+        "Everyone rows harder",
+        5,
+        target="all",
+        value=0.05,
+    ),
+    EventDef(
+        "secret_shortcut",
+        "Secret Shortcut",
+        "A chaser finds clean water",
+        3,
+        target="nonleading",
+        value=0.12,
+    ),
     EventDef("anchor_drag", "Anchor Drag", "Acceleration dips", 3, kind="negative"),
     EventDef("river_blessing", "River Blessing", "Bad luck slides away", 5),
-    EventDef("wild_current", "Wild Current", "A strange current appears", 4, kind="mixed"),
-    EventDef("photo_finish", "Photo Finish Energy", "Final sprint for everyone", 5, target="all", value=0.08),
-    EventDef("crowd_roar", "Crowd Roar", "Most crowded boat surges", 3, target="most_rowers"),
-    EventDef("quiet_focus", "Quiet Focus", "Smallest crew surges", 3, target="fewest_rowers"),
+    EventDef(
+        "wild_current", "Wild Current", "A strange current appears", 4, kind="mixed"
+    ),
+    EventDef(
+        "photo_finish",
+        "Photo Finish Energy",
+        "Final sprint for everyone",
+        5,
+        target="all",
+        value=0.08,
+    ),
+    EventDef(
+        "crowd_roar", "Crowd Roar", "Most crowded boat surges", 3, target="most_rowers"
+    ),
+    EventDef(
+        "quiet_focus", "Quiet Focus", "Smallest crew surges", 3, target="fewest_rowers"
+    ),
     EventDef("paddle_sync", "Paddle Sync", "Balance bonus grows", 4),
     EventDef("wobbly_wake", "Wobbly Wake", "Balance bonus shrinks", 4, kind="negative"),
 ]
+
+RANDOM_EVENT_POOL = [event for event in EVENT_POOL if event.key != "photo_finish"]
 
 
 @dataclass
@@ -155,7 +214,9 @@ class GameState:
         self.countdown_value: str | int | None = None
         self.round_started_at: float | None = None
         self.time_remaining = RACE_SECONDS
-        self.tap_windows: dict[str, deque[tuple[float, dict[str, int]]]] = defaultdict(deque)
+        self.tap_windows: dict[str, deque[tuple[float, dict[str, int]]]] = defaultdict(
+            deque
+        )
         self.last_negative_target: str | None = None
         self.event_log: deque[dict[str, Any]] = deque(maxlen=8)
         self.round_results: list[dict[str, Any]] = []
@@ -214,7 +275,9 @@ class GameState:
         self.round_results = []
         self.event_log.clear()
         self.selection_player_count = len(self.players)
-        self.boat_capacity = max(1, math.ceil(max(1, self.selection_player_count) * 0.30))
+        self.boat_capacity = max(
+            1, math.ceil(max(1, self.selection_player_count) * 0.30)
+        )
         for player in self.players.values():
             player.selected_boat = None
             player.round_stats = self._empty_stats()
@@ -285,7 +348,8 @@ class GameState:
         for key, value in stats.items():
             round_stats[key] = round_stats.get(key, 0) + value
         round_stats["contribution_power"] = (
-            round_stats.get("alternating_taps", 0) + round_stats.get("repeated_taps", 0) * 0.25
+            round_stats.get("alternating_taps", 0)
+            + round_stats.get("repeated_taps", 0) * 0.25
         )
         player.round_stats = round_stats
         player.total_left_taps += stats["left_taps"]
@@ -328,7 +392,9 @@ class GameState:
             rower_count = self.boat_counts()[boat.boat_id]
             calculated = self._calculate_speed(boat, stats, rower_count, elapsed)
             boat.speed = self._smooth_speed(boat, calculated)
-            boat.position = min(FINISH_DISTANCE, boat.position + boat.speed * TICK_SECONDS)
+            boat.position = min(
+                FINISH_DISTANCE, boat.position + boat.speed * TICK_SECONDS
+            )
             if boat.finish_time is None and boat.position >= FINISH_DISTANCE:
                 boat.finish_time = elapsed
         if elapsed >= RACE_SECONDS:
@@ -371,7 +437,9 @@ class GameState:
         self.round_results = self._round_scoreboard()
         self._build_final_leaderboard()
 
-    def public_boats(self, reveal_traits: bool = False, include_counts: bool = False) -> list[dict[str, Any]]:
+    def public_boats(
+        self, reveal_traits: bool = False, include_counts: bool = False
+    ) -> list[dict[str, Any]]:
         counts = self.boat_counts()
         return [
             {
@@ -386,8 +454,18 @@ class GameState:
         ]
 
     def race_state(self) -> dict[str, Any]:
-        include_counts = self.phase in {"RACING", "ROUND_RESULTS", "ROUND_LEADERBOARD", "FINAL_RESULTS"}
-        reveal = self.phase in {"RACING", "ROUND_RESULTS", "ROUND_LEADERBOARD", "FINAL_RESULTS"}
+        include_counts = self.phase in {
+            "RACING",
+            "ROUND_RESULTS",
+            "ROUND_LEADERBOARD",
+            "FINAL_RESULTS",
+        }
+        reveal = self.phase in {
+            "RACING",
+            "ROUND_RESULTS",
+            "ROUND_LEADERBOARD",
+            "FINAL_RESULTS",
+        }
         return {
             "type": "race_state",
             "phase": self.phase,
@@ -405,7 +483,7 @@ class GameState:
                 }
                 for boat_data in self.public_boats(reveal, include_counts)
             ],
-            "events": list(self.event_log),
+            "events": self._active_event_log(),
             "round_results": self.round_results,
             "final_leaderboard": self.final_leaderboard,
         }
@@ -428,7 +506,11 @@ class GameState:
 
     def player_state(self, player_id: str | None) -> dict[str, Any]:
         player = self.players.get(player_id or "")
-        selected_boat = self.boats.get(player.selected_boat) if player and player.selected_boat else None
+        selected_boat = (
+            self.boats.get(player.selected_boat)
+            if player and player.selected_boat
+            else None
+        )
         final_rank = None
         if player and self.final_leaderboard:
             for index, row in enumerate(self.final_leaderboard, start=1):
@@ -451,7 +533,9 @@ class GameState:
             "last_round_result": player.last_round_result if player else {},
             "final_rank": final_rank,
             "boats": self.public_boats(False, False),
-            "race_boat": self._player_boat_snapshot(selected_boat) if selected_boat else None,
+            "race_boat": self._player_boat_snapshot(selected_boat)
+            if selected_boat
+            else None,
             "final_leaderboard": self.final_leaderboard[:10],
         }
 
@@ -466,13 +550,17 @@ class GameState:
         powers: dict[str, list[float]] = {boat_id: [] for boat_id in self.boats.keys()}
         for player in self.players.values():
             if player.selected_boat in powers:
-                powers[player.selected_boat].append(player.round_stats.get("contribution_power", 0))
+                powers[player.selected_boat].append(
+                    player.round_stats.get("contribution_power", 0)
+                )
         return {
             boat_id: (sum(values) / len(values) if values else 0)
             for boat_id, values in powers.items()
         }
 
-    def _individual_round_bonus(self, stats: dict[str, float], boat_average_power: float) -> dict[str, Any]:
+    def _individual_round_bonus(
+        self, stats: dict[str, float], boat_average_power: float
+    ) -> dict[str, Any]:
         alternating = stats.get("alternating_taps", 0)
         repeated = stats.get("repeated_taps", 0)
         contribution_power = stats.get("contribution_power", 0)
@@ -536,16 +624,25 @@ class GameState:
             while window and now - window[0][0] > 1.0:
                 window.popleft()
         for boat in self.boats.values():
-            boat.active_events = [event for event in boat.active_events if event["ends_at"] > now]
+            boat.active_events = [
+                event for event in boat.active_events if event["ends_at"] > now
+            ]
 
     def _sum_recent_taps(self, boat_id: str) -> dict[str, int]:
-        totals = {"left_taps": 0, "right_taps": 0, "alternating_taps": 0, "repeated_taps": 0}
+        totals = {
+            "left_taps": 0,
+            "right_taps": 0,
+            "alternating_taps": 0,
+            "repeated_taps": 0,
+        }
         for _, stats in self.tap_windows[boat_id]:
             for key in totals:
                 totals[key] += int(stats.get(key, 0))
         return totals
 
-    def _calculate_speed(self, boat: Boat, stats: dict[str, int], rower_count: int, elapsed: float) -> float:
+    def _calculate_speed(
+        self, boat: Boat, stats: dict[str, int], rower_count: int, elapsed: float
+    ) -> float:
         repeated_weight = 0.25
         alternating_mult = 1.0
         balance_mult = 1.0
@@ -556,7 +653,19 @@ class GameState:
         for event in boat.active_events:
             key = event["key"]
             value = event.get("value", 0.0)
-            if key in {"tailwind", "lucky_current", "dolphin_push", "golden_wave", "rival_wake", "banana_peel", "rogue_ripple", "festival_drums", "secret_shortcut", "photo_finish", "wild_current"}:
+            if key in {
+                "tailwind",
+                "lucky_current",
+                "dolphin_push",
+                "golden_wave",
+                "rival_wake",
+                "banana_peel",
+                "rogue_ripple",
+                "festival_drums",
+                "secret_shortcut",
+                "photo_finish",
+                "wild_current",
+            }:
                 speed_mult *= 1 + value
             elif key == "splash_zone":
                 balance_mult *= 0.8
@@ -582,7 +691,13 @@ class GameState:
                 balance_mult *= 1.12
             elif key == "wobbly_wake":
                 balance_mult *= 0.88
-            elif key in {"calm_patch", "choppy_water", "anchor_drag", "river_blessing", "misty_river"}:
+            elif key in {
+                "calm_patch",
+                "choppy_water",
+                "anchor_drag",
+                "river_blessing",
+                "misty_river",
+            }:
                 smoothing_note += 0.0
 
         p = boat.power.key
@@ -636,7 +751,10 @@ class GameState:
         elif p == "comeback_current" and boat.rank == 5:
             speed_mult *= 1.08
 
-        valid_power = stats["alternating_taps"] * alternating_mult + stats["repeated_taps"] * repeated_weight
+        valid_power = (
+            stats["alternating_taps"] * alternating_mult
+            + stats["repeated_taps"] * repeated_weight
+        )
         balance = 1 - abs(stats["left_taps"] - stats["right_taps"]) / max(total_taps, 1)
         balance = max(0, min(1, balance * balance_mult))
         crowd_penalty = 1 + rower_count * 0.08 * weight_penalty_mult
@@ -681,12 +799,16 @@ class GameState:
         active_count = sum(len(b.active_events) for b in self.boats.values())
         desired_events = 7
         chance = desired_events / (RACE_SECONDS / TICK_SECONDS)
-        if elapsed > 35 and not any(e["key"] == "photo_finish" for b in self.boats.values() for e in b.active_events):
+        if elapsed > 35 and not any(
+            e["key"] == "photo_finish"
+            for b in self.boats.values()
+            for e in b.active_events
+        ):
             self._apply_event(next(e for e in EVENT_POOL if e.key == "photo_finish"))
             return
         if active_count >= 4 or random.random() > chance:
             return
-        self._apply_event(random.choice(EVENT_POOL))
+        self._apply_event(random.choice(RANDOM_EVENT_POOL))
 
     def _apply_event(self, event: EventDef) -> None:
         target_ids = self._event_targets(event)
@@ -701,7 +823,10 @@ class GameState:
             boat = self.boats[boat_id]
             if event.kind == "negative" and boat_id == self.last_negative_target:
                 continue
-            if any(e.get("kind") == "negative" and event.kind == "negative" for e in boat.active_events):
+            if any(
+                e.get("kind") == "negative" and event.kind == "negative"
+                for e in boat.active_events
+            ):
                 continue
             active = {
                 "key": event.key,
@@ -726,6 +851,7 @@ class GameState:
                     "description": event.description,
                     "kind": event.kind,
                     "timestamp": time.time(),
+                    "ends_at": now + event.duration,
                 }
             )
 
@@ -757,7 +883,9 @@ class GameState:
         return [random.choice(choices or boats).boat_id]
 
     def _current_ranks(self) -> dict[str, int]:
-        ordered = sorted(self.boats.values(), key=lambda b: (-b.position, -b.speed, b.boat_id))
+        ordered = sorted(
+            self.boats.values(), key=lambda b: (-b.position, -b.speed, b.boat_id)
+        )
         return {boat.boat_id: index + 1 for index, boat in enumerate(ordered)}
 
     def _rank_final_boats(self) -> None:
@@ -787,14 +915,18 @@ class GameState:
                 "color": boat.color,
                 "rank": boat.rank,
                 "position": round(boat.position, 1),
-                "finish_time": round(boat.finish_time, 2) if boat.finish_time is not None else None,
+                "finish_time": round(boat.finish_time, 2)
+                if boat.finish_time is not None
+                else None,
                 "rower_count": counts[boat.boat_id],
                 "power_name": boat.power.name,
                 "power_trait": boat.power.trait,
                 "points": POINTS_BY_PLACE[boat.rank - 1],
                 "top_rower": {
                     "nickname": top_rower.nickname,
-                    "power": round(top_rower.round_stats.get("contribution_power", 0), 1),
+                    "power": round(
+                        top_rower.round_stats.get("contribution_power", 0), 1
+                    ),
                 }
                 if top_rower and top_rower.selected_boat == boat.boat_id
                 else None,
@@ -839,6 +971,14 @@ class GameState:
             "active_event_description": event["description"],
             "active_event_kind": event["kind"],
         }
+
+    def _active_event_log(self) -> list[dict[str, Any]]:
+        now = time.monotonic()
+        return [
+            {key: value for key, value in event.items() if key != "ends_at"}
+            for event in self.event_log
+            if event.get("ends_at", 0) > now
+        ]
 
 
 game = GameState()
