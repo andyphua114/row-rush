@@ -35,6 +35,9 @@ export type Contribution = {
 
 export type PlayerState = {
   type: "player_state";
+  room_id?: string;
+  room_name?: string;
+  max_players?: number;
   phase: Phase;
   round: number;
   time_remaining: number;
@@ -65,6 +68,9 @@ export type PlayerState = {
 
 export type AdminState = {
   type: "admin_state";
+  room_id?: string;
+  room_name?: string;
+  max_players?: number;
   phase: Phase;
   round: number;
   total_players: number;
@@ -80,6 +86,9 @@ export type AdminState = {
 
 export type RaceState = {
   type: "race_state";
+  room_id?: string;
+  room_name?: string;
+  max_players?: number;
   phase: Phase;
   round: number;
   time_remaining: number;
@@ -119,4 +128,33 @@ export type LeaderboardRow = {
   score: number;
   rounds_played: number;
   contribution_power: number;
+};
+
+export type CapacityState = {
+  max_total_players: number;
+  reserved_players: number;
+  available_players: number;
+  empty_room_ttl_seconds: number;
+  final_results_ttl_seconds: number;
+};
+
+export type RoomSummary = {
+  room_id: string;
+  name: string;
+  max_players: number;
+  total_players: number;
+  connected_players: number;
+  connected_clients: number;
+  phase: Phase;
+  round: number;
+  created_at: number;
+  last_activity_at: number;
+  empty_since?: number | null;
+  final_results_since?: number | null;
+};
+
+export type GlobalAdminState = {
+  type: "global_admin_state";
+  rooms: RoomSummary[];
+  capacity: CapacityState;
 };

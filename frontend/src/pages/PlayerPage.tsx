@@ -15,9 +15,11 @@ const emptyStats = (): Contribution => ({
   contribution_power: 0,
 });
 
-export function PlayerPage() {
-  const { state, status, send } = useRowRushSocket<PlayerState>("player");
-  const [nickname, setNickname] = useState(localStorage.getItem("row_rush_nickname") || "");
+export function PlayerPage({ roomId }: { roomId: string }) {
+  const playerKey = `row_rush_player_id:${roomId}`;
+  const nicknameKey = `row_rush_nickname:${roomId}`;
+  const { state, status, send } = useRowRushSocket<PlayerState>("player", { roomId });
+  const [nickname, setNickname] = useState(localStorage.getItem(nicknameKey) || "");
   const [selectionMessage, setSelectionMessage] = useState("");
   const [feedback, setFeedback] = useState<"good" | "weak" | "">("");
   const [combo, setCombo] = useState(0);
@@ -41,7 +43,7 @@ export function PlayerPage() {
       if (!total) return;
       send({
         type: "tap_update",
-        player_id: localStorage.getItem("row_rush_player_id"),
+        player_id: localStorage.getItem(playerKey),
         round: state.round,
         boat_id: state.selected_boat,
         ...buffered,
@@ -49,7 +51,7 @@ export function PlayerPage() {
       bufferRef.current = emptyStats();
     }, 200);
     return () => window.clearInterval(timer);
-  }, [send, state]);
+  }, [playerKey, send, state]);
 
   useEffect(() => {
     if (state?.phase !== "RACING") {
@@ -81,11 +83,11 @@ export function PlayerPage() {
   const submitNickname = () => {
     const clean = nickname.trim();
     if (!clean) return;
-    localStorage.setItem("row_rush_nickname", clean);
+    localStorage.setItem(nicknameKey, clean);
     send({
       type: "join",
       nickname: clean,
-      player_id: localStorage.getItem("row_rush_player_id"),
+      player_id: localStorage.getItem(playerKey),
     });
   };
 

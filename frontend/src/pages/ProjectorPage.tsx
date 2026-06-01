@@ -10,14 +10,14 @@ const PixiRaceCanvas = lazy(() =>
   })),
 );
 
-export function ProjectorPage() {
-  const { state, status } = useRowRushSocket<RaceState>("projector");
-  const joinUrl = `${window.location.origin}/`;
+export function ProjectorPage({ roomId }: { roomId: string }) {
+  const { state, status } = useRowRushSocket<RaceState>("projector", { roomId });
+  const joinUrl = `${window.location.origin}/r/${roomId}`;
   return (
     <div className="fixed inset-0 h-dvh w-screen overflow-hidden bg-slate-950 font-display text-white">
       <div className="absolute left-6 top-5 z-20">
         <p className="text-sm font-black uppercase tracking-[0.22em] text-teal-100">
-          Row Rush
+          {state?.room_name ?? "Row Rush"}
         </p>
         <h1 className="text-6xl font-black drop-shadow-lg">
           Round {Math.min(state?.round ?? 1, 3)}

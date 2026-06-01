@@ -7,6 +7,7 @@ type SocketOptions = {
   adminPassword?: string;
   allowBrowserWsOverride?: boolean;
   enabled?: boolean;
+  roomId?: string;
 };
 
 function normalizeWsUrl(value: string) {
@@ -16,30 +17,60 @@ function normalizeWsUrl(value: string) {
   return value;
 }
 
-export function getWsUrl({ allowBrowserOverride = true }: { allowBrowserOverride?: boolean } = {}) {
+function withWsPath(url: string, path: string) {
+  try {
+    const parsed = new URL(url);
+    parsed.pathname = parsed.pathname.replace(/\/ws\/?$/, "") + path;
+    return parsed.toString();
+  } catch {
+    return url;
+  }
+}
+
+export function getWsUrl({
+  allowBrowserOverride = true,
+  path = "/ws",
+}: {
+  allowBrowserOverride?: boolean;
+  path?: string;
+} = {}) {
   const params = new URLSearchParams(window.location.search);
   const queryWsUrl = params.get("ws");
   if (allowBrowserOverride && queryWsUrl) {
     const normalized = normalizeWsUrl(queryWsUrl);
     localStorage.setItem("row_rush_ws_url", normalized);
-    return normalized;
+    return withWsPath(normalized, path);
   }
 
   const storedWsUrl = localStorage.getItem("row_rush_ws_url");
-  if (allowBrowserOverride && storedWsUrl) return storedWsUrl;
-  if (explicitWsUrl) return normalizeWsUrl(explicitWsUrl);
+  if (allowBrowserOverride && storedWsUrl) return withWsPath(storedWsUrl, path);
+  if (explicitWsUrl) return withWsPath(normalizeWsUrl(explicitWsUrl), path);
 
   const protocol = window.location.protocol === "https:" ? "wss" : "ws";
   const host = import.meta.env.DEV
     ? `${window.location.hostname || "127.0.0.1"}:${explicitBackendPort || "8000"}`
     : window.location.host;
-  return `${protocol}://${host}/ws`;
+  return `${protocol}://${host}${path}`;
 }
 
-export function useRowRushSocket<T>(role: "player" | "admin" | "projector", options: SocketOptions = {}) {
+export function getHttpUrl(path: string) {
+  if (explicitWsUrl) {
+    const normalized = normalizeWsUrl(explicitWsUrl);
+    const httpUrl = normalized.replace(/^ws:\/\//, "http://").replace(/^wss:\/\//, "https://");
+    return withWsPath(httpUrl, path);
+  }
+  const protocol = window.location.protocol;
+  const host = import.meta.env.DEV
+    ? `${window.location.hostname || "127.0.0.1"}:${explicitBackendPort || "8000"}`
+    : window.location.host;
+  return `${protocol}//${host}${path}`;
+}
+
+export function useRowRushSocket<T>(role: "player" | "admin" | "projector" | "global_admin", options: SocketOptions = {}) {
   const adminPassword = options.adminPassword;
   const enabled = options.enabled ?? true;
-  const allowBrowserWsOverride = options.allowBrowserWsOverride ?? role !== "admin";
+  const allowBrowserWsOverride = options.allowBrowserWsOverride ?? !["admin", "global_admin"].includes(role);
+  const roomId = options.roomId;
   const [state, setState] = useState<T | null>(null);
   const [status, setStatus] = useState<"connecting" | "open" | "closed">("connecting");
   const [lastError, setLastError] = useState<string>("");
@@ -47,7 +78,7 @@ export function useRowRushSocket<T>(role: "player" | "admin" | "projector", opti
   const queueRef = useRef<string[]>([]);
 
   useEffect(() => {
-    if (!enabled) {
+    if (!enabled || (role !== "global_admin" && !roomId)) {
       setState(null);
       setStatus("closed");
       setLastError("");
@@ -63,7 +94,8 @@ export function useRowRushSocket<T>(role: "player" | "admin" | "projector", opti
 
     const connect = () => {
       setStatus("connecting");
-      const socket = new WebSocket(getWsUrl({ allowBrowserOverride: allowBrowserWsOverride }));
+      const path = role === "global_admin" ? "/ws/globaladmin" : `/ws/rooms/${roomId}`;
+      const socket = new WebSocket(getWsUrl({ allowBrowserOverride: allowBrowserWsOverride, path }));
       wsRef.current = socket;
 
       socket.onopen = () => {
@@ -74,8 +106,8 @@ export function useRowRushSocket<T>(role: "player" | "admin" | "projector", opti
           JSON.stringify({
             type: "identify",
             role,
-            player_id: localStorage.getItem("row_rush_player_id"),
-            ...(role === "admin" ? { admin_password: adminPassword } : {}),
+            player_id: roomId ? localStorage.getItem(`row_rush_player_id:${roomId}`) : null,
+            ...(role === "admin" || role === "global_admin" ? { admin_password: adminPassword } : {}),
           }),
         );
         for (const item of queueRef.current.splice(0)) {
@@ -86,7 +118,7 @@ export function useRowRushSocket<T>(role: "player" | "admin" | "projector", opti
       socket.onmessage = (event) => {
         const payload = JSON.parse(event.data);
         if (payload.type === "joined" && payload.player_id) {
-          localStorage.setItem("row_rush_player_id", payload.player_id);
+          if (roomId) localStorage.setItem(`row_rush_player_id:${roomId}`, payload.player_id);
           socket.send(JSON.stringify({ type: "identify", role: "player", player_id: payload.player_id }));
           return;
         }
@@ -95,6 +127,10 @@ export function useRowRushSocket<T>(role: "player" | "admin" | "projector", opti
           return;
         }
         if (payload.type === "admin_auth") {
+          setLastError("");
+          return;
+        }
+        if (payload.type === "global_admin_auth") {
           setLastError("");
           return;
         }
@@ -125,7 +161,7 @@ export function useRowRushSocket<T>(role: "player" | "admin" | "projector", opti
       window.clearTimeout(reconnectTimer);
       wsRef.current?.close();
     };
-  }, [adminPassword, allowBrowserWsOverride, enabled, role]);
+  }, [adminPassword, allowBrowserWsOverride, enabled, role, roomId]);
 
   const send = useCallback((payload: unknown) => {
     const text = JSON.stringify(payload);

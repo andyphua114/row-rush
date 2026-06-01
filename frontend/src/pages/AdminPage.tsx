@@ -7,26 +7,28 @@ import type { AdminState } from "../types";
 
 const ADMIN_PASSWORD_SESSION_KEY = "row_rush_admin_password";
 
-export function AdminPage() {
+export function AdminPage({ roomId }: { roomId: string }) {
+  const passwordKey = `${ADMIN_PASSWORD_SESSION_KEY}:${roomId}`;
   const [adminPassword, setAdminPassword] = useState(
-    () => sessionStorage.getItem(ADMIN_PASSWORD_SESSION_KEY) ?? "",
+    () => sessionStorage.getItem(passwordKey) ?? "",
   );
   const [passwordInput, setPasswordInput] = useState("");
   const { state, status, lastError, send } = useRowRushSocket<AdminState>("admin", {
     adminPassword,
     enabled: Boolean(adminPassword),
+    roomId,
   });
 
   const submitPassword = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!passwordInput) return;
-    sessionStorage.setItem(ADMIN_PASSWORD_SESSION_KEY, passwordInput);
+    sessionStorage.setItem(passwordKey, passwordInput);
     setAdminPassword(passwordInput);
     setPasswordInput("");
   };
 
   const clearPassword = () => {
-    sessionStorage.removeItem(ADMIN_PASSWORD_SESSION_KEY);
+    sessionStorage.removeItem(passwordKey);
     setAdminPassword("");
     setPasswordInput("");
   };
@@ -37,7 +39,7 @@ export function AdminPage() {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <p className="text-sm font-black uppercase tracking-[0.18em] text-teal-700">Row Rush Control</p>
-            <h1 className="text-5xl font-black">Admin</h1>
+            <h1 className="text-5xl font-black">{state?.room_name ?? "Room Admin"}</h1>
           </div>
           <div className="flex items-center gap-2">
             {adminPassword && (
@@ -93,7 +95,7 @@ export function AdminPage() {
             <div className="mt-6 grid gap-3 md:grid-cols-4">
               <Stat label="Phase" value={state.phase.replace("_", " ")} />
               <Stat label="Round" value={`${Math.min(state.round, 3)} / 3`} />
-              <Stat label="Players" value={`${state.connected_players} / ${state.total_players}`} />
+              <Stat label="Players" value={`${state.total_players} / ${state.max_players ?? "-"}`} />
               <Stat label="Boat Cap" value={state.boat_capacity || "-"} />
             </div>
 
@@ -142,6 +144,14 @@ export function AdminPage() {
                 }}
               >
                 <RotateCcw size={20} /> Reset Game
+              </button>
+              <button
+                className="admin-button bg-slate-950 text-white"
+                onClick={() => {
+                  if (window.confirm("End this room and free its reserved player slots?")) send({ type: "admin_end_room" });
+                }}
+              >
+                <LogOut size={20} /> End Room
               </button>
             </div>
 
